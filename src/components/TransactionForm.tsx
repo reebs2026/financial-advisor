@@ -194,7 +194,7 @@ export default function TransactionForm({
       </div>
 
       {/* Category (optional) */}
-      {transactionType === 'expense' && (
+      {transactionType === 'EXPENSE' && (
         <div>
           <label htmlFor="category" className="label">
             Category

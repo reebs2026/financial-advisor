@@ -1,0 +1,58 @@
+services:
+  # Financial Advisor Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+    container_name: financial-advisor-app
+    env_file:
+      - .env.local
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - postgres
+    networks:
+      - financial-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # PostgreSQL Database (optional - for local testing without Supabase)
+  postgres:
+    image: postgres:15-alpine
+    container_name: financial-advisor-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: financial_advisor
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - financial-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Expose port for debugging (optional, remove for production)
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  financial-network:
+    driver: bridge

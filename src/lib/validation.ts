@@ -22,7 +22,7 @@ export const UpdateTransactionSchema = z.object({
 export const CreateAccountSchema = z.object({
   name: z.string().min(1, 'Name is required').max(50),
   type: z.enum(['CHECKING', 'SAVINGS', 'INVESTMENT', 'DEBT', 'CREDIT_CARD']),
-  currency: z.string().default('ZAR').max(3),
+  currency: z.string().max(3).default('ZAR'),
   balance: z.number().default(0),
   description: z.string().optional(),
 })

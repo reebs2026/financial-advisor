@@ -1,0 +1,17 @@
+VERCEL ENVIRONMENT VARIABLES
+============================
+
+Copy and paste these into Vercel when prompted:
+
+NEXT_PUBLIC_SUPABASE_URL=https://mnnzzwufucxmqyzmmfgl.supabase.co
+
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ubnp6d3VmdWN4bXF5em1tZmdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5MjIxODEsImV4cCI6MjA5MjQ5ODE4MX0.pcCFS9duMZ-mcxHQGCjYAnlhzB9EUwKNzrXplyPoz_E
+
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ubnp6d3VmdWN4bXF5em1tZmdsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjkyMjE4MSwiZXhwIjoyMDkyNDk4MTgxfQ.1YOhLWdy85UcHUIIavajFY2oqoLJC4WnzQtfQSSOnJw
+
+DATABASE_URL=postgresql://postgres:[cY*b4Q_$c#hUy6E]@db.mnnzzwufucxmqyzmmfgl.supabase.co:5432/postgres
+
+NEXT_PUBLIC_APP_URL=https://financial-advisor.vercel.app
+
+NODE_ENV=production
+/Users/rebiodirile/Desktop/CLAUDE FOLDER/FINANCIAL ADVISOR/VERCEL_ENV_VARS.txt

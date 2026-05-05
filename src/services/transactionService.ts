@@ -22,7 +22,7 @@ export class TransactionService {
         account_id: data.account_id,
         category_id: data.category_id,
         amount: amount,
-        transaction_type: data.transaction_type.toUpperCase(),
+        transaction_type: data.transaction_type.toUpperCase() as 'INCOME' | 'EXPENSE' | 'TRANSFER',
         description: data.description,
         transaction_date: data.transaction_date,
       },
@@ -35,9 +35,9 @@ export class TransactionService {
     if (account) {
       let newBalance = new Decimal(account.balance)
 
-      if (data.transaction_type === 'income') {
+      if (data.transaction_type === 'INCOME') {
         newBalance = newBalance.plus(amount)
-      } else if (data.transaction_type === 'expense') {
+      } else if (data.transaction_type === 'EXPENSE') {
         newBalance = newBalance.minus(amount)
       }
 

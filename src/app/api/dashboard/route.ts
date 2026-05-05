@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { TransactionService } from '@/services/transactionService'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()

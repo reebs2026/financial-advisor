@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { CreateTransactionSchema } from '@/lib/validation'
 import { TransactionService } from '@/services/transactionService'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     // Get authenticated user

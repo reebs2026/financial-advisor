@@ -1,0 +1,396 @@
+// Prisma schema for Financial Advisor
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Users table - Supabase Auth integration
+model User {
+  id        String   @id @db.Uuid
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accounts              Account[]
+  transactions          Transaction[]
+  categories            Category[]
+  budgets               Budget[]
+  budget_allocations    BudgetAllocation[]
+  debt_accounts         DebtAccount[]
+  debt_payments         DebtPayment[]
+  sinking_funds         SinkingFund[]
+  sinking_fund_contribs SinkingFundContribution[]
+  investments           Investment[]
+  investment_snapshots  InvestmentSnapshot[]
+  monthly_snapshots     MonthlySnapshot[]
+  forecast_models       ForecastModel[]
+  usage                 Usage[]
+  audit_logs            AuditLog[]
+
+  @@map("users")
+}
+
+// Accounts - Bank, investment, debt accounts
+model Account {
+  id            String   @id @default(cuid())
+  user_id       String   @db.Uuid
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  name          String   @db.VarChar(50)
+  account_type  String   @db.VarChar(20) // "bank", "investment", "debt", "sinking"
+  currency      String   @default("ZAR") @db.VarChar(3)
+  balance       Decimal  @default(0) @db.Decimal(15, 2)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  transactions  Transaction[]
+  debt_account  DebtAccount?
+
+  @@unique([user_id, name])
+  @@map("accounts")
+}
+
+// Transactions - Income, expense, transfer
+model Transaction {
+  id                  String   @id @default(cuid())
+  user_id             String   @db.Uuid
+  user                User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  account_id          String
+  account             Account  @relation(fields: [account_id], references: [id])
+
+  amount              Decimal  @db.Decimal(15, 2)
+  date                DateTime @db.Date
+  description         String   @db.VarChar(500)
+  transaction_type    String   @db.VarChar(20) // "income", "expense", "transfer"
+
+  category_id         String?
+  category            Category? @relation(fields: [category_id], references: [id])
+  tagged_budget_id    String?
+  tagged_budget       Budget?  @relation(fields: [tagged_budget_id], references: [id], onDelete: SetNull)
+
+  ai_parsed           Boolean  @default(false)
+  ai_confidence       Int?     // 0-100
+
+  deleted_at          DateTime?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  monthly_snapshots   MonthlySnapshotTransaction[]
+
+  @@index([user_id, date])
+  @@index([user_id, transaction_type])
+  @@index([category_id])
+  @@index([tagged_budget_id])
+  @@map("transactions")
+}
+
+// Categories - Spending categories
+model Category {
+  id        String   @id @default(cuid())
+  user_id   String   @db.Uuid
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  name      String   @db.VarChar(30)
+  emoji     String?  @db.VarChar(2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  transactions Transaction[]
+
+  @@unique([user_id, name])
+  @@map("categories")
+}
+
+// Budgets - Monthly budget allocations
+model Budget {
+  id            String   @id @default(cuid())
+  user_id       String   @db.Uuid
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  name          String   @db.VarChar(50)
+  tier          String   @db.VarChar(20) // "protected", "strategic", "flexible"
+  monthly_amount Decimal  @db.Decimal(15, 2)
+
+  // For protected budgets (Kai School)
+  min_amount    Decimal? @db.Decimal(15, 2)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  transactions        Transaction[]
+  allocations         BudgetAllocation[]
+  budget_snapshots    BudgetSnapshot[]
+
+  @@unique([user_id, name])
+  @@map("budgets")
+}
+
+// Budget Allocations - Historical record of budget allocations
+model BudgetAllocation {
+  id          String   @id @default(cuid())
+  user_id     String   @db.Uuid
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  budget_id   String
+  budget      Budget   @relation(fields: [budget_id], references: [id], onDelete: Cascade)
+
+  month       String   @db.VarChar(7) // "2026-04"
+  allocated   Decimal  @db.Decimal(15, 2)
+  spent       Decimal  @default(0) @db.Decimal(15, 2)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([user_id, budget_id, month])
+  @@map("budget_allocations")
+}
+
+// Debt Accounts - Credit cards, loans, etc.
+model DebtAccount {
+  id          String   @id @default(cuid())
+  user_id     String   @db.Uuid
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  account_id  String   @unique
+  account     Account  @relation(fields: [account_id], references: [id], onDelete: Cascade)
+
+  creditor    String   @db.VarChar(50) // "Naeem", "Cedric", etc.
+  balance     Decimal  @db.Decimal(15, 2)
+  interest_rate Decimal? @db.Decimal(5, 2) // Annual percentage
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  payments    DebtPayment[]
+
+  @@map("debt_accounts")
+}
+
+// Debt Payments - Record of debt payments
+model DebtPayment {
+  id            String   @id @default(cuid())
+  user_id       String   @db.Uuid
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  debt_account_id String
+  debt_account  DebtAccount @relation(fields: [debt_account_id], references: [id], onDelete: Cascade)
+
+  amount        Decimal  @db.Decimal(15, 2)
+  date          DateTime @db.Date
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([user_id, date])
+  @@map("debt_payments")
+}
+
+// Sinking Funds - Emergency fund, car service, etc.
+model SinkingFund {
+  id            String   @id @default(cuid())
+  user_id       String   @db.Uuid
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  name          String   @db.VarChar(50)
+  target_amount Decimal  @db.Decimal(15, 2)
+  current_balance Decimal @default(0) @db.Decimal(15, 2)
+  monthly_contribution Decimal @db.Decimal(15, 2)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  contributions SinkingFundContribution[]
+
+  @@unique([user_id, name])
+  @@map("sinking_funds")
+}
+
+// Sinking Fund Contributions - Monthly contributions
+model SinkingFundContribution {
+  id              String   @id @default(cuid())
+  user_id         String   @db.Uuid
+  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  sinking_fund_id String
+  sinking_fund    SinkingFund @relation(fields: [sinking_fund_id], references: [id], onDelete: Cascade)
+
+  amount          Decimal  @db.Decimal(15, 2)
+  date            DateTime @db.Date
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([user_id, date])
+  @@map("sinking_fund_contributions")
+}
+
+// Investments - Stocks, ETFs, Unit Trusts, etc.
+model Investment {
+  id            String   @id @default(cuid())
+  user_id       String   @db.Uuid
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  name          String   @db.VarChar(100)
+  type          String   @db.VarChar(50) // "unit_trust", "stock", "etf", "crypto"
+  units         Decimal  @db.Decimal(15, 2)
+  price_per_unit Decimal  @db.Decimal(15, 2)
+  current_value Decimal  @db.Decimal(15, 2)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  snapshots     InvestmentSnapshot[]
+
+  @@map("investments")
+}
+
+// Investment Snapshots - Historical investment values
+model InvestmentSnapshot {
+  id            String   @id @default(cuid())
+  user_id       String   @db.Uuid
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  investment_id String
+  investment    Investment @relation(fields: [investment_id], references: [id], onDelete: Cascade)
+
+  month         String   @db.VarChar(7) // "2026-04"
+  value         Decimal  @db.Decimal(15, 2)
+  units         Decimal  @db.Decimal(15, 2)
+  price_per_unit Decimal  @db.Decimal(15, 2)
+
+  createdAt     DateTime @default(now())
+
+  @@unique([user_id, investment_id, month])
+  @@map("investment_snapshots")
+}
+
+// Monthly Snapshots - Summary snapshot for each month
+model MonthlySnapshot {
+  id            String   @id @default(cuid())
+  user_id       String   @db.Uuid
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  month         String   @db.VarChar(7) // "2026-04"
+  period_start  DateTime @db.Date
+  period_end    DateTime @db.Date
+
+  income        Decimal  @default(0) @db.Decimal(15, 2)
+  expenses      Decimal  @default(0) @db.Decimal(15, 2)
+  net           Decimal  @default(0) @db.Decimal(15, 2)
+
+  computed_at   DateTime @default(now())
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  transactions  MonthlySnapshotTransaction[]
+  budgets       BudgetSnapshot[]
+
+  @@unique([user_id, month])
+  @@map("monthly_snapshots")
+}
+
+// Monthly Snapshot Transactions - Link transactions to monthly snapshot
+model MonthlySnapshotTransaction {
+  id                String   @id @default(cuid())
+  transaction_id    String
+  transaction       Transaction @relation(fields: [transaction_id], references: [id], onDelete: Cascade)
+  snapshot_id       String
+  snapshot          MonthlySnapshot @relation(fields: [snapshot_id], references: [id], onDelete: Cascade)
+
+  @@unique([transaction_id, snapshot_id])
+  @@map("monthly_snapshot_transactions")
+}
+
+// Budget Snapshot - Budget summary for month
+model BudgetSnapshot {
+  id            String   @id @default(cuid())
+  snapshot_id   String
+  snapshot      MonthlySnapshot @relation(fields: [snapshot_id], references: [id], onDelete: Cascade)
+  budget_id     String
+  budget        Budget  @relation(fields: [budget_id], references: [id], onDelete: Cascade)
+
+  allocated     Decimal  @db.Decimal(15, 2)
+  spent         Decimal  @db.Decimal(15, 2)
+
+  @@unique([snapshot_id, budget_id])
+  @@map("budget_snapshots")
+}
+
+// Forecast Models - Saved forecast scenarios
+model ForecastModel {
+  id            String   @id @default(cuid())
+  user_id       String   @db.Uuid
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  name          String   @db.VarChar(100)
+  month         String   @db.VarChar(7) // "2026-04"
+
+  assumptions   String   @db.Text // JSON: income, expense changes, etc.
+  results       String   @db.Text // JSON: projected balances
+
+  archived      Boolean  @default(false)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("forecast_models")
+}
+
+// Usage Tracking - API quota usage
+model Usage {
+  id              String   @id @default(cuid())
+  user_id         String   @db.Uuid
+  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  month           String   @db.VarChar(7) // "2026-04"
+
+  api_calls_count Int      @default(0)
+  ai_parse_count  Int      @default(0)
+  forecast_count  Int      @default(0)
+
+  api_calls_cost  Decimal  @default(0) @db.Decimal(10, 4)
+  ai_parse_cost   Decimal  @default(0) @db.Decimal(10, 4)
+  forecast_cost   Decimal  @default(0) @db.Decimal(10, 4)
+  total_cost      Decimal  @default(0) @db.Decimal(10, 4)
+
+  quota_api_calls Int      @default(10000)
+  quota_ai_parse  Int      @default(50)
+  quota_forecast  Int      @default(5)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([user_id, month])
+  @@map("usage")
+}
+
+// Audit Logs - Security & compliance
+model AuditLog {
+  id          String   @id @default(cuid())
+  user_id     String   @db.Uuid
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  action      String   @db.VarChar(100) // "create_transaction", "delete_budget", etc.
+  details     String   @db.Text // JSON: what changed
+  ip_address  String?  @db.VarChar(45)
+  user_agent  String?  @db.Text
+
+  createdAt   DateTime @default(now())
+
+  @@index([user_id, action])
+  @@map("audit_logs")
+}
